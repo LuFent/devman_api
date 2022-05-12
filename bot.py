@@ -29,7 +29,7 @@ def main():
 
     # ID Пользователя, которому будут приходить уведомления,
     # можно узнать, написав @userinfobot
-    my_id = os.environ['TG_USER_ID']
+    user_id = os.environ['TG_USER_ID']
 
     url = 'https://dvmn.org/api/long_polling/'
 
@@ -45,7 +45,7 @@ def main():
 
     logger.setLevel(logging.INFO)
 
-    logger.addHandler(TelegramLogsHandler(bot, my_id))
+    logger.addHandler(TelegramLogsHandler(bot, user_id))
 
 
     while True:
@@ -57,6 +57,28 @@ def main():
             lesson_checking_response.raise_for_status()
             checked_lessons = lesson_checking_response.json()
 
+            if checked_lessons['status'] == 'timeout':
+                params['timestamp'] = checked_lessons['timestamp_to_request']
+
+            elif checked_lessons['status'] == 'found':
+                lesson_url = checked_lessons['new_attempts'][0]['lesson_url']
+                lesson_title = checked_lessons['new_attempts'][0]["lesson_title"]
+
+                message_linked_part = f'<a href="{lesson_url}"> {lesson_title} </a>'
+
+                if checked_lessons['new_attempts'][0]['is_negative']:
+                    result_part_of_message = 'Работу не зачли, требуются улучшения.'
+                else:
+                    result_part_of_message = 'Работу приняли! Можно ' \
+                                             'приступать к следующему уроку.'
+
+                message = f'Урок на Девмане {message_linked_part} проверен. \n' \
+                          f'{result_part_of_message}'
+
+                bot.send_message(text=message,
+                                 chat_id=user_id,
+                                 parse_mode=telegram.ParseMode.HTML)
+
         except requests.exceptions.ReadTimeout:
             continue
 
@@ -64,35 +86,13 @@ def main():
             sleep(60)
             continue
 
-        if checked_lessons['status'] == 'timeout':
-            params['timestamp'] = checked_lessons['timestamp_to_request']
+        except Exception:
+            logger.info(f'Бот Упал :(\nОшибка:')
+            logger.exception(traceback.format_exc())
 
-        elif checked_lessons['status'] == 'found':
-            lesson_url = checked_lessons['new_attempts'][0]['lesson_url']
-            lesson_title = checked_lessons['new_attempts'][0]["lesson_title"]
-
-            message_linked_part = f'<a href="{lesson_url}"> {lesson_title} </a>'
-
-            if checked_lessons['new_attempts'][0]['is_negative']:
-                result_part_of_message = 'Работу не зачли, требуются улучшения.'
-            else:
-                result_part_of_message = 'Работу приняли! Можно ' \
-                                         'приступать к следующему уроку.'
-
-            message = f'Урок на Девмане {message_linked_part} проверен. \n' \
-                      f'{result_part_of_message}'
-
-            bot.send_message(text=message,
-                             chat_id=my_id,
-                             parse_mode=telegram.ParseMode.HTML)
 
 
 if __name__ == '__main__':
-    while True:
-        try:
-            main()
-        except Exception:
-            logger.info(f'Бот Упал :(\nОшибка:\n')
-            logger.info('Трейсбек Ошибки:')
-            logger.error(traceback.format_exc())
+    main()
+
 
