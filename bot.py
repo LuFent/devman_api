@@ -79,7 +79,7 @@ def main():
                                  chat_id=user_id,
                                  parse_mode=telegram.ParseMode.HTML)
 
-		sleep(5) #fixes a bug with eternal messages spam
+                sleep(5) #fixes a bug with eternal messages spam
 
         except requests.exceptions.ReadTimeout:
             continue
